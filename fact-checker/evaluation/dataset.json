@@ -1,0 +1,142 @@
+[
+  {
+    "id": 1,
+    "claim": "India's unemployment rate is 2%.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "economic",
+    "notes": "Actual rate is around 7-8% per CMIE/government data"
+  },
+  {
+    "id": 2,
+    "claim": "The population of India is over 1.4 billion.",
+    "expected_verdict": "SUPPORTED",
+    "category": "demographic",
+    "notes": "Census and UN data confirm this"
+  },
+  {
+    "id": 3,
+    "claim": "India is the world's largest democracy.",
+    "expected_verdict": "SUPPORTED",
+    "category": "political",
+    "notes": "Widely accepted fact by population"
+  },
+  {
+    "id": 4,
+    "claim": "India's GDP growth rate was 15% in 2023.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "economic",
+    "notes": "Actual GDP growth was around 7-8%"
+  },
+  {
+    "id": 5,
+    "claim": "The Ganges river is the longest river in the world.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "geography",
+    "notes": "The Nile or Amazon is the longest"
+  },
+  {
+    "id": 6,
+    "claim": "India launched its first Mars mission, Mangalyaan, in 2013.",
+    "expected_verdict": "SUPPORTED",
+    "category": "science",
+    "notes": "MOM launched November 5, 2013"
+  },
+  {
+    "id": 7,
+    "claim": "Hindi is the only official language of India.",
+    "expected_verdict": "MISLEADING",
+    "category": "political",
+    "notes": "Hindi and English are both official; 22 scheduled languages"
+  },
+  {
+    "id": 8,
+    "claim": "India won the Cricket World Cup in 2023.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "sports",
+    "notes": "Australia won the 2023 ODI World Cup"
+  },
+  {
+    "id": 9,
+    "claim": "India has the second largest population in the world.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "demographic",
+    "notes": "India surpassed China as the most populous country in 2023"
+  },
+  {
+    "id": 10,
+    "claim": "The Indian Space Research Organisation successfully landed Chandrayaan-3 on the Moon in 2023.",
+    "expected_verdict": "SUPPORTED",
+    "category": "science",
+    "notes": "Landed August 23, 2023"
+  },
+  {
+    "id": 11,
+    "claim": "India's literacy rate is above 95%.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "education",
+    "notes": "India's literacy rate is around 77-80%"
+  },
+  {
+    "id": 12,
+    "claim": "New Delhi is the capital of India.",
+    "expected_verdict": "SUPPORTED",
+    "category": "geography",
+    "notes": "Well-established fact"
+  },
+  {
+    "id": 13,
+    "claim": "India produces more rice than any other country in the world.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "agriculture",
+    "notes": "China produces more rice than India"
+  },
+  {
+    "id": 14,
+    "claim": "India became independent in 1947.",
+    "expected_verdict": "SUPPORTED",
+    "category": "history",
+    "notes": "August 15, 1947"
+  },
+  {
+    "id": 15,
+    "claim": "Every Indian citizen is required by law to vote in elections.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "political",
+    "notes": "Voting is a right, not a legal obligation in India"
+  },
+  {
+    "id": 16,
+    "claim": "India has completely eliminated poverty.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "economic",
+    "notes": "Poverty still exists, though rates have decreased"
+  },
+  {
+    "id": 17,
+    "claim": "The Indian Rupee has appreciated 50% against the US Dollar in the last decade.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "economic",
+    "notes": "The Rupee has depreciated, not appreciated"
+  },
+  {
+    "id": 18,
+    "claim": "Yoga originated in India.",
+    "expected_verdict": "SUPPORTED",
+    "category": "culture",
+    "notes": "Historical consensus supports Indian origin"
+  },
+  {
+    "id": 19,
+    "claim": "India has no nuclear weapons.",
+    "expected_verdict": "CONTRADICTED",
+    "category": "defense",
+    "notes": "India conducted nuclear tests in 1974 and 1998"
+  },
+  {
+    "id": 20,
+    "claim": "The tallest statue in the world is in India.",
+    "expected_verdict": "SUPPORTED",
+    "category": "culture",
+    "notes": "Statue of Unity (182m) in Gujarat is the world's tallest"
+  }
+]
