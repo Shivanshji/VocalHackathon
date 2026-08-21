@@ -1,0 +1,27 @@
+# API keys / Secrets
+.env
+fact-checker/.env
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+fact-checker/.pytest_cache/
+fact-checker/**/__pycache__/
+
+# Scratch scripts
+fact-checker/scratch/
+
+# Local database data
+pgdata/
+redisdata/
+fact-checker/pgdata/
+fact-checker/redisdata/
+
+# IDE / System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,55 @@
+{
+  "summary": {
+    "total": 3,
+    "correct": 1,
+    "accuracy": 0.3333333333333333,
+    "errors": 0,
+    "avg_confidence": 0.5183666666666666,
+    "avg_latency_seconds": 55.789052883783974
+  },
+  "per_verdict": {
+    "CONTRADICTED": {
+      "total": 1,
+      "correct": 0
+    },
+    "SUPPORTED": {
+      "total": 2,
+      "correct": 1
+    }
+  },
+  "details": [
+    {
+      "id": 1,
+      "claim": "India's unemployment rate is 2%.",
+      "expected": "CONTRADICTED",
+      "predicted": "MISLEADING",
+      "correct": false,
+      "confidence": 0.474,
+      "explanation": "The claim that India's unemployment rate is 2% is based on a World Economic Forum (WEF) report cited by Union Minister Mansukh Mandaviya. However, this claim is misleading as it conflicts with officia",
+      "evidence_count": 5,
+      "elapsed": 49.29453253746033
+    },
+    {
+      "id": 2,
+      "claim": "The population of India is over 1.4 billion.",
+      "expected": "SUPPORTED",
+      "predicted": "SUPPORTED",
+      "correct": true,
+      "confidence": 0.6069,
+      "explanation": "Multiple high-quality sources and demographic estimates consistently show that the population of India is over 1.4 billion. According to the United Nations' World Population Dashboard, India's populat",
+      "evidence_count": 13,
+      "elapsed": 63.638336420059204
+    },
+    {
+      "id": 3,
+      "claim": "India is the world's largest democracy.",
+      "expected": "SUPPORTED",
+      "predicted": "MISLEADING",
+      "correct": false,
+      "confidence": 0.4742,
+      "explanation": "While India possesses the world's largest electorate with approximately 968.8 million registered voters according to high-quality government data (PIB, Quality: 0.97), labeling it 'the world's largest",
+      "evidence_count": 6,
+      "elapsed": 54.4342896938324
+    }
+  ]
+}
