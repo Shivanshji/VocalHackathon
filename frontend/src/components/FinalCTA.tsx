@@ -10,10 +10,9 @@ interface FinalCTAProps {
     secondaryCtaText: string;
     footnote: string;
   };
-  onOpenCustomizer: () => void;
 }
 
-export const FinalCTA: React.FC<FinalCTAProps> = ({ data, onOpenCustomizer }) => {
+export const FinalCTA: React.FC<FinalCTAProps> = ({ data }) => {
   return (
     <section 
       id="cta"
@@ -59,14 +58,14 @@ export const FinalCTA: React.FC<FinalCTAProps> = ({ data, onOpenCustomizer }) =>
                 <ArrowUpRight className="w-4 h-4" />
               </a>
 
-              {/* Secondary CTA */}
-              <button
-                onClick={onOpenCustomizer}
+              {/* Secondary CTA → API Docs */}
+              <a
+                href="#"
                 id="final-secondary-cta-btn"
                 className="inline-flex items-center gap-2 px-6 py-4 rounded-full text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-sm font-mono transition-all duration-150"
               >
                 <span>{data.secondaryCtaText}</span>
-              </button>
+              </a>
             </div>
 
             {/* Footnote */}

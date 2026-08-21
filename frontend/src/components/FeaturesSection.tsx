@@ -18,13 +18,11 @@ interface FeaturesSectionProps {
     description: string;
   };
   features: FeatureCard[];
-  onOpenCustomizer: () => void;
 }
 
 export const FeaturesSection: React.FC<FeaturesSectionProps> = ({
   heading,
   features,
-  onOpenCustomizer,
 }) => {
   const [activeTab, setActiveTab] = useState<Record<string, 'overview' | 'code'>>({
     'feature-1': 'overview',
@@ -41,6 +39,7 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({
       case 'layers':
         return <Layers className="w-5 h-5" />;
       case 'shield':
+      case 'shieldcheck':
         return <ShieldCheck className="w-5 h-5" />;
       case 'bot':
         return <Bot className="w-5 h-5" />;
@@ -77,12 +76,7 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={onOpenCustomizer}
-            className="self-start md:self-auto text-xs font-mono text-zinc-400 hover:text-white border border-white/10 hover:border-white/30 px-4 py-2 rounded-full bg-zinc-950 transition-colors flex items-center gap-1.5"
-          >
-            <span>Edit Features</span>
-          </button>
+
         </div>
 
         {/* 3 Value / Feature Cards Grid */}
@@ -159,13 +153,13 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({
                     {feature.metricHighlight || 'Verified Architecture'}
                   </span>
 
-                  <button
-                    onClick={onOpenCustomizer}
+                  <a
+                    href="#tryit"
                     className="text-xs font-mono text-zinc-500 hover:text-white flex items-center gap-1 transition-colors"
                   >
-                    <span>Edit</span>
+                    <span>Try It</span>
                     <ArrowRight className="w-3 h-3" />
-                  </button>
+                  </a>
                 </div>
               </div>
             );

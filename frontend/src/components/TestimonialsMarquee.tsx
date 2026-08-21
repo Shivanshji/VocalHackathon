@@ -11,7 +11,6 @@ interface TestimonialsMarqueeProps {
   pressLogos: PressLogo[];
   lane1: TestimonialItem[];
   lane2: TestimonialItem[];
-  onOpenCustomizer: () => void;
 }
 
 export const TestimonialsMarquee: React.FC<TestimonialsMarqueeProps> = ({
@@ -19,7 +18,6 @@ export const TestimonialsMarquee: React.FC<TestimonialsMarqueeProps> = ({
   pressLogos,
   lane1,
   lane2,
-  onOpenCustomizer,
 }) => {
   const [isPaused, setIsPaused] = useState(false);
 
@@ -67,20 +65,13 @@ export const TestimonialsMarquee: React.FC<TestimonialsMarqueeProps> = ({
         </div>
 
         {/* Pause / Play micro-controller */}
-        <div className="flex items-center justify-center gap-4 mt-6">
+          <div className="flex items-center justify-center gap-4 mt-6">
           <button
             onClick={() => setIsPaused(!isPaused)}
             className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-mono text-zinc-400 hover:text-white bg-zinc-900 border border-white/10 rounded-full transition-colors"
           >
             {isPaused ? <Play className="w-3 h-3 text-white" /> : <Pause className="w-3 h-3 text-zinc-400" />}
-            <span>{isPaused ? 'Resume Carousel' : 'Pause Carousel'}</span>
-          </button>
-
-          <button
-            onClick={onOpenCustomizer}
-            className="text-xs font-mono text-zinc-400 hover:text-white underline underline-offset-4"
-          >
-            Edit Testimonials
+            <span>{isPaused ? 'Resume' : 'Pause Carousel'}</span>
           </button>
         </div>
 
