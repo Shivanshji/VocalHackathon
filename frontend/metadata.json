@@ -1,0 +1,6 @@
+{
+  "name": "Universal AI Hackathon Landing Page",
+  "description": "A high-end, minimalist black and white landing page template for AI hackathon projects with universal editable placeholders, dual-lane testimonials, and clean typography.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
