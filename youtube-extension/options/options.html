@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SachMei — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-container">
+    <header class="options-header">
+      <div class="options-logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </div>
+      <div>
+        <h1 class="options-title">SachMei Settings</h1>
+        <p class="options-subtitle">Configure your live fact-checking experience</p>
+      </div>
+    </header>
+
+    <main class="options-main">
+
+      <!-- General Settings -->
+      <section class="options-card">
+        <h2 class="card-title">General</h2>
+        <div class="option-row">
+          <div class="option-info">
+            <label class="option-label" for="opt-enabled">Enable fact-checking</label>
+            <p class="option-desc">Toggle the entire extension on or off.</p>
+          </div>
+          <label class="toggle" for="opt-enabled">
+            <input type="checkbox" id="opt-enabled">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <label class="option-label" for="opt-auto-start">Auto-start on new videos</label>
+            <p class="option-desc">Automatically begin transcript loading when you navigate to a video.</p>
+          </div>
+          <label class="toggle" for="opt-auto-start">
+            <input type="checkbox" id="opt-auto-start" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <label class="option-label" for="opt-show-confidence">Show confidence score</label>
+            <p class="option-desc">Display the confidence percentage alongside verdicts.</p>
+          </div>
+          <label class="toggle" for="opt-show-confidence">
+            <input type="checkbox" id="opt-show-confidence" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- AI Provider -->
+      <section class="options-card">
+        <h2 class="card-title">Fact-Check Provider</h2>
+        <p class="card-desc">Choose which AI service powers fact-checking. Start with Mock for testing, then connect a real API.</p>
+
+        <div class="provider-grid">
+          <label class="provider-option" id="provider-mock-label">
+            <input type="radio" name="provider" value="mock" id="provider-mock">
+            <div class="provider-card">
+              <div class="provider-icon">🧪</div>
+              <div class="provider-name">Mock Provider</div>
+              <div class="provider-desc">Demo mode. No API key needed. Cycles through realistic sample responses.</div>
+            </div>
+          </label>
+          <label class="provider-option" id="provider-gemini-label">
+            <input type="radio" name="provider" value="gemini" id="provider-gemini">
+            <div class="provider-card">
+              <div class="provider-icon">✨</div>
+              <div class="provider-name">Gemini (Google)</div>
+              <div class="provider-desc">Uses Google's Gemini AI for real fact-checking. Requires API key.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="option-row" id="gemini-key-row" style="margin-top: 16px;" hidden>
+          <div class="option-info">
+            <label class="option-label" for="gemini-key">Gemini API Key</label>
+            <p class="option-desc">Get your key at <a class="options-link" href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></p>
+          </div>
+          <div class="input-group">
+            <input type="password" class="options-input" id="gemini-key" placeholder="AIza...">
+            <button class="btn-save" id="save-gemini-key">Save</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Claim Detection -->
+      <section class="options-card">
+        <h2 class="card-title">Claim Detection</h2>
+        <p class="card-desc">Control how aggressively SachMei detects factual claims.</p>
+
+        <div class="option-row">
+          <div class="option-info">
+            <label class="option-label" for="sensitivity">Detection sensitivity</label>
+            <p class="option-desc">Higher = detects more claims (may include false positives).</p>
+          </div>
+          <div class="range-wrap">
+            <input type="range" id="sensitivity" min="1" max="5" value="3" class="options-range">
+            <span class="range-value" id="sensitivity-value">Medium</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cache Management -->
+      <section class="options-card">
+        <h2 class="card-title">Cache</h2>
+        <p class="card-desc">SachMei caches fact-check results for 24 hours to avoid repeated API calls for the same claim.</p>
+        <div class="cache-actions">
+          <div class="cache-stat" id="cache-size-display">—</div>
+          <button class="btn-danger" id="clear-cache-btn">Clear All Cache</button>
+        </div>
+      </section>
+
+      <!-- About -->
+      <section class="options-card options-card-about">
+        <h2 class="card-title">About SachMei</h2>
+        <p class="card-desc">
+          SachMei is an open-source Chrome extension for real-time AI-powered fact-checking on YouTube.
+          It uses YouTube's caption/transcript data — no audio recording or microphone access required.
+        </p>
+        <div class="about-pipeline">
+          <div class="pipeline-step">YouTube Captions</div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">Claim Detection</div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">AI Fact-Check</div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">Verdict Display</div>
+        </div>
+        <p class="options-version">Version 1.0.0 · Not legal advice · AI outputs may be inaccurate</p>
+      </section>
+
+    </main>
+
+    <div class="options-save-bar" id="save-bar" hidden>
+      <span>Unsaved changes</span>
+      <button class="btn-primary" id="save-all-btn">Save Settings</button>
+    </div>
+
+    <div class="options-toast" id="options-toast"></div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

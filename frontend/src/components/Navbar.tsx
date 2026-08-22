@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from '../types';
-import { Menu, X, ArrowUpRight } from 'lucide-react';
+import { Menu, X, Download } from 'lucide-react';
 
 interface NavbarProps {
   brandName: string;
@@ -89,14 +89,15 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName, navLinks }) => {
             </a>
           )}
 
-          {/* Launch / CTA button */}
+          {/* Launch / Download Extension button */}
           <a
-            href="#tryit"
-            id="nav-signup-btn"
-            className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-full bg-white text-black hover:bg-zinc-200 transition-all duration-150 gap-1.5"
+            href="/youtube-extension.zip"
+            download="youtube-extension.zip"
+            id="nav-extension-download-btn"
+            className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-full bg-white text-black hover:bg-zinc-200 transition-all duration-150 gap-1.5 cursor-pointer"
           >
-            <span>Analyse Now</span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
+            <span>Download Extension</span>
+            <Download className="w-3.5 h-3.5" />
           </a>
         </div>
 
@@ -138,11 +139,13 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName, navLinks }) => {
 
           <div className="pt-3 border-t border-white/10">
             <a
-              href="#tryit"
+              href="/youtube-extension.zip"
+              download="youtube-extension.zip"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full block text-center py-2.5 px-4 bg-white text-black font-semibold rounded-xl text-xs uppercase tracking-wider"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white text-black font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer"
             >
-              Analyse Now
+              <Download className="w-4 h-4" />
+              <span>Download Extension</span>
             </a>
           </div>
         </div>
