@@ -1,3 +1,5 @@
-from .schemas import AudioAnalysisResponse, FactCheckGateResult, ProcessedSegment, StatementType, STTResult, TranscriptSegment
+from .schemas import (AudioAnalysisResponse, ClaimInput, EvidenceItem, FactCheckGateResult, FactCheckResult,
+                      ProcessedSegment, StatementType, STTResult, TranscriptSegment)
 
-__all__ = ["AudioAnalysisResponse", "FactCheckGateResult", "ProcessedSegment", "StatementType", "STTResult", "TranscriptSegment"]
+__all__ = ["AudioAnalysisResponse", "ClaimInput", "EvidenceItem", "FactCheckGateResult", "FactCheckResult",
+           "ProcessedSegment", "StatementType", "STTResult", "TranscriptSegment"]

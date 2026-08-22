@@ -48,6 +48,42 @@ class ProcessedSegment(BaseModel):
     fact_check_gate: FactCheckGateResult
 
 
+class ClaimInput(BaseModel):
+    session_id: str
+    segment_id: str
+    start: float
+    end: float
+    english_text: str
+    should_fact_check: bool
+    statement_type: str
+    routing_reason: str
+
+
+class EvidenceItem(BaseModel):
+    title: str
+    url: str
+    source_quality: float
+    stance: str
+    text: str
+    relevance_score: float = 0.0
+
+
+class FactCheckResult(BaseModel):
+    session_id: str
+    segment_id: str
+    start: float
+    end: float
+    original_text: str
+    canonical_claim: str
+    sub_claims: list[str] | None = None
+    verdict: str
+    confidence: float
+    explanation: str
+    evidence: list[EvidenceItem] = Field(default_factory=list)
+    checked_at: str
+    status: str
+
+
 class AudioAnalysisResponse(BaseModel):
     detected_language: str | None
     language_probability: float | None

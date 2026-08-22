@@ -2,6 +2,7 @@ import logging
 import json
 import shutil
 import tempfile
+import uuid
 from pathlib import Path
 import aiofiles
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
@@ -78,7 +79,8 @@ async def analyze_audio_stream(request: Request, audio: UploadFile = File(...)):
 
     async def events():
         try:
-            async for event in request.app.state.pipeline.stream_audio(str(source), directory, 5):
+            session_id = f"audio_{uuid.uuid4().hex}"
+            async for event in request.app.state.pipeline.stream_audio(str(source), directory, 5, session_id):
                 yield json.dumps(event) + "\n"
         except Exception as exc:
             logger.exception("Streaming pipeline failed")

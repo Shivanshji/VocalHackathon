@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     indictrans_device: str = "cpu"
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    fact_checker_url: str = "http://127.0.0.1:8001"
     ai_timeout_seconds: float = 30
     max_upload_mb: int = 50
     log_level: str = "INFO"

@@ -6,15 +6,18 @@ from ai.speech.factcheck_gate import GeminiGate
 from ai.speech.segmenter import sentence_segments
 from ai.speech.stt import WhisperTranscriber
 from ai.speech.translator import IndicTransTranslator
-from backend.models import AudioAnalysisResponse, FactCheckGateResult, ProcessedSegment, StatementType
+from backend.models import AudioAnalysisResponse, ClaimInput, FactCheckGateResult, ProcessedSegment, StatementType
 from backend.services.audio import normalize_audio, split_audio
+from backend.services.fact_checker import FactCheckerClient
 
 logger = logging.getLogger(__name__)
 
 
 class AudioPipeline:
-    def __init__(self, transcriber: WhisperTranscriber, translator: IndicTransTranslator, gate: GeminiGate):
+    def __init__(self, transcriber: WhisperTranscriber, translator: IndicTransTranslator, gate: GeminiGate,
+                 fact_checker: FactCheckerClient | None = None):
         self.transcriber, self.translator, self.gate = transcriber, translator, gate
+        self.fact_checker = fact_checker
 
     async def process_audio(self, input_path: str, normalized_path: str) -> AudioAnalysisResponse:
         total_started = time.perf_counter()
@@ -84,7 +87,8 @@ class AudioPipeline:
             translation_latency_ms=translation_ms if processed else None,
             classification_latency_ms=classification_ms if decisions else None, total_latency_ms=total_ms)
 
-    async def stream_audio(self, input_path: str, chunk_directory: str, chunk_seconds: int = 5):
+    async def stream_audio(self, input_path: str, chunk_directory: str, chunk_seconds: int = 5,
+                           session_id: str = "session"):
         """Pipeline STT ahead of translation without letting either block event delivery."""
         chunks = await split_audio(input_path, chunk_directory, chunk_seconds)
         yield {"type": "started", "chunk_seconds": chunk_seconds, "chunk_count": len(chunks)}
@@ -92,6 +96,8 @@ class AudioPipeline:
         # These jobs contain only text, so an unbounded queue is cheap. A bounded
         # queue made slow translation stop Whisper exactly eight chunks later.
         translation_jobs: asyncio.Queue = asyncio.Queue()
+        routing_jobs: asyncio.Queue = asyncio.Queue()
+        fact_check_jobs: asyncio.Queue = asyncio.Queue()
         state = {"segments": 0, "language": None}
         locked_language = None
 
@@ -133,20 +139,61 @@ class AudioPipeline:
                     except Exception as exc:
                         logger.warning("[STREAM TRANSLATION] chunk=%d unavailable=%s", chunk_index, exc)
                     gate = FactCheckGateResult(should_fact_check=None, statement_type=StatementType.unknown,
-                                               reason="Queued for downstream fact checking.")
+                                               reason="Routing pending.")
                     item = ProcessedSegment(segment_id=f"seg_{state['segments']}", start=offset + unit.start,
                                             end=offset + unit.end, original_text=unit.text,
                                             english_text=english, fact_check_gate=gate)
-                    await output.put({"type": "segment", "detected_language": language,
-                                      "language_probability": probability,
-                                      "segment": item.model_dump(mode="json")})
+                    if english:
+                        await routing_jobs.put((item, language, probability))
                 await output.put({"type": "progress", "completed_chunks": chunk_index + 1,
                                   "chunk_count": len(chunks)})
+            await routing_jobs.put(None)
+
+        async def routing_worker():
+            while True:
+                job = await routing_jobs.get()
+                if job is None:
+                    break
+                item, language, probability = job
+                try:
+                    gate = await self.gate.classify_fact_check_worthiness(item.english_text)
+                except Exception as exc:
+                    logger.warning("[STREAM GATE] segment=%s unavailable=%s", item.segment_id, exc)
+                    continue
+                if not gate.should_fact_check:
+                    continue
+                item.fact_check_gate = gate
+                claim = ClaimInput(session_id=session_id, segment_id=item.segment_id,
+                                   start=item.start, end=item.end, english_text=item.english_text,
+                                   should_fact_check=True, statement_type=gate.statement_type.value,
+                                   routing_reason=gate.reason)
+                await output.put({"type": "claim", "detected_language": language,
+                                  "language_probability": probability,
+                                  "segment": item.model_dump(mode="json"),
+                                  "claim": claim.model_dump(mode="json")})
+                await fact_check_jobs.put(claim)
+            await fact_check_jobs.put(None)
+
+        async def fact_check_worker():
+            while True:
+                claim = await fact_check_jobs.get()
+                if claim is None:
+                    break
+                if self.fact_checker is None:
+                    continue
+                try:
+                    result = await self.fact_checker.check(claim)
+                    await output.put({"type": "fact_check", "result": result.model_dump(mode="json")})
+                except Exception as exc:
+                    logger.warning("[FACT CHECK] segment=%s unavailable=%s", claim.segment_id, exc)
+                    await output.put({"type": "fact_check_error", "segment_id": claim.segment_id,
+                                      "detail": str(exc)})
             await output.put({"type": "complete", "detected_language": state["language"],
                               "segment_count": state["segments"]})
             await output.put(None)
 
-        workers = [asyncio.create_task(transcribe_worker()), asyncio.create_task(translation_worker())]
+        workers = [asyncio.create_task(transcribe_worker()), asyncio.create_task(translation_worker()),
+                   asyncio.create_task(routing_worker()), asyncio.create_task(fact_check_worker())]
         try:
             while True:
                 event = await output.get()
