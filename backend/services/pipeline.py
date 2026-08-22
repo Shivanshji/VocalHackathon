@@ -143,6 +143,11 @@ class AudioPipeline:
                     item = ProcessedSegment(segment_id=f"seg_{state['segments']}", start=offset + unit.start,
                                             end=offset + unit.end, original_text=unit.text,
                                             english_text=english, fact_check_gate=gate)
+                    # Translation is its own live product surface. Emit every
+                    # translated segment immediately; routing/fact checking may lag.
+                    await output.put({"type": "segment", "detected_language": language,
+                                      "language_probability": probability,
+                                      "segment": item.model_dump(mode="json")})
                     if english:
                         await routing_jobs.put((item, language, probability))
                 await output.put({"type": "progress", "completed_chunks": chunk_index + 1,
