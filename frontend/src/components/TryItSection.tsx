@@ -1,308 +1,161 @@
-import React, { useState, useRef } from 'react';
-import { Upload, Mic, Film, FileAudio, X, ArrowUpRight } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowUpRight, FileAudio, Film, Mic, Upload, X } from 'lucide-react';
+
+type Gate = { should_fact_check: boolean | null; statement_type: string; reason: string };
+type ProcessedSegment = { segment_id: string; start: number; end: number; original_text: string; english_text: string | null; fact_check_gate: Gate };
+type AnalysisResult = {
+  detected_language: string | null; language_probability: number | null; original_text: string;
+  english_text: string | null; fact_check_gate: Gate; processed_segments: ProcessedSegment[];
+  stt_latency_ms: number; translation_latency_ms: number | null;
+  classification_latency_ms: number | null; total_latency_ms: number;
+};
+
+const API_URL = import.meta.env.VITE_PERSON2_API_URL ?? 'http://localhost:8000';
+const LANGUAGE_NAMES: Record<string, string> = { en: 'English', hi: 'Hindi', ml: 'Malayalam', ta: 'Tamil', te: 'Telugu' };
+const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
+const milliseconds = (value: number | null) => value == null ? 'Unavailable' : `${Math.round(value)} ms`;
 
 export const TryItSection: React.FC = () => {
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [activeSegment, setActiveSegment] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [processedChunks, setProcessedChunks] = useState(0);
+  const [chunkCount, setChunkCount] = useState(0);
+  const [transcribedChunks, setTranscribedChunks] = useState(0);
+  const [waitingForBuffer, setWaitingForBuffer] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [error, setError] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mediaRef = useRef<HTMLMediaElement | null>(null);
+  const processedThrough = processedChunks * 5;
+  const playbackReady = processedChunks >= 3 || (!loading && processedChunks > 0);
 
-  const SUPPORTED_LANGUAGES = [
-    'Hindi', 'Tamil', 'Telugu', 'Bengali',
-    'Marathi', 'Kannada', 'Malayalam', 'Punjabi',
-    'Odia', 'Gujarati', 'Urdu', 'Assamese',
-  ];
+  useEffect(() => {
+    const media = mediaRef.current;
+    if (!media || !waitingForBuffer) return;
+    if (!loading || processedThrough - media.currentTime >= 10) {
+      setWaitingForBuffer(false);
+      void media.play().catch(() => undefined);
+    }
+  }, [processedThrough, waitingForBuffer, loading]);
 
-  const ACCEPTED_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a'];
+  useEffect(() => {
+    if (!file) { setMediaUrl(''); return; }
+    const url = URL.createObjectURL(file);
+    setMediaUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
+  const selectFile = (selected?: File) => {
+    if (!selected) return;
+    setFile(selected); setResult(null); setActiveSegment(null); setCurrentTime(0); setError('');
   };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const removeFile = () => {
+    setFile(null); setResult(null); setActiveSegment(null); setError('');
+    if (inputRef.current) inputRef.current.value = '';
   };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) setUploadedFile(file);
+  const analyze = async () => {
+    if (!file || loading) return;
+    setLoading(true); setError(''); setProgress('Uploading…'); setProcessedChunks(0); setTranscribedChunks(0); setChunkCount(0); setWaitingForBuffer(false);
+    setResult({ detected_language: null, language_probability: null, original_text: '', english_text: null,
+      fact_check_gate: { should_fact_check: null, statement_type: 'unknown', reason: 'Routing pending.' },
+      processed_segments: [], stt_latency_ms: 0, translation_latency_ms: null,
+      classification_latency_ms: null, total_latency_ms: 0 });
+    const started = performance.now();
+    const body = new FormData(); body.append('audio', file);
+    try {
+      mediaRef.current?.pause();
+      if (mediaRef.current) mediaRef.current.currentTime = 0;
+      const response = await fetch(`${API_URL}/api/analyze-audio-stream`, { method: 'POST', body });
+      if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.detail ?? `Analysis failed (${response.status})`); }
+      if (!response.body) throw new Error('This browser cannot read streaming responses.');
+      const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read(); buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+        const lines = buffer.split('\n'); buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+          if (event.type === 'error') throw new Error(event.detail);
+          if (event.type === 'started') { setChunkCount(event.chunk_count); setProgress(`0/${event.chunk_count} chunks · ${event.chunk_seconds}s each`); }
+          if (event.type === 'transcription_progress') setTranscribedChunks(event.transcribed_chunks);
+          if (event.type === 'progress') { setProcessedChunks(event.completed_chunks); setProgress(`${event.completed_chunks}/${event.chunk_count} chunks processed`); }
+          if (event.type === 'segment') setResult(current => current && ({ ...current,
+            detected_language: current.detected_language ?? event.detected_language,
+            language_probability: current.language_probability ?? event.language_probability,
+            original_text: [current.original_text, event.segment.original_text].filter(Boolean).join(' '),
+            english_text: [current.english_text, event.segment.english_text].filter(Boolean).join(' ') || null,
+            processed_segments: [...current.processed_segments, event.segment], total_latency_ms: performance.now() - started }));
+          if (event.type === 'gate') setResult(current => current && ({ ...current,
+            processed_segments: current.processed_segments.map(segment => segment.segment_id === event.segment_id
+              ? { ...segment, fact_check_gate: event.fact_check_gate } : segment) }));
+          if (event.type === 'complete') setProgress(`Complete · ${event.segment_count} segments`);
+        }
+        if (done) break;
+      }
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Could not reach the speech backend.');
+    } finally { setLoading(false); }
   };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setUploadedFile(file);
+  const syncTranscript = () => {
+    const time = mediaRef.current?.currentTime ?? 0;
+    setCurrentTime(time);
+    if (loading && time >= Math.max(0, processedThrough - 1)) {
+      mediaRef.current?.pause(); setWaitingForBuffer(true);
+    }
+    const match = result?.processed_segments.find(segment => time >= segment.start && time < segment.end);
+    setActiveSegment(match?.segment_id ?? null);
   };
-
-  const handleRemoveFile = () => {
-    setUploadedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const guardPlayback = () => {
+    if (!playbackReady) { mediaRef.current?.pause(); setWaitingForBuffer(true); return; }
+    if (loading && (mediaRef.current?.currentTime ?? 0) >= Math.max(0, processedThrough - 1)) {
+      mediaRef.current?.pause(); setWaitingForBuffer(true);
+    }
   };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const seek = (segment: ProcessedSegment) => {
+    if (!mediaRef.current) return;
+    mediaRef.current.currentTime = segment.start;
+    void mediaRef.current.play();
   };
+  const isVideo = file?.type.startsWith('video/') || /\.(mp4|mov|webm)$/i.test(file?.name ?? '');
+  const currentSegments = result?.processed_segments.filter(segment => currentTime >= segment.start && currentTime < segment.end) ?? [];
 
-  const isVideo = uploadedFile?.type.startsWith('video/');
-
-  return (
-    <section
-      id="tryit"
-      className="relative py-24 sm:py-32 border-t border-white/[0.08] bg-black overflow-hidden"
-    >
-      {/* Ambient glows */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-emerald-500/[0.04] rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/[0.04] rounded-full blur-3xl" />
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 relative z-10">
-
-        {/* Section Header */}
-        <div className="text-center mb-14 space-y-4">
-          <div className="text-xs font-mono uppercase tracking-widest text-zinc-500">// TRY IT LIVE</div>
-          <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white">
-            Upload. Translate. Verify.
-          </h2>
-          <p className="text-zinc-400 text-base sm:text-lg max-w-2xl mx-auto font-sans leading-relaxed">
-            Drop your audio or video file and SachMein? will translate the speech and fact-check every claim in real time.
-          </p>
+  return <section id="tryit" className="relative py-24 sm:py-32 border-t border-white/[0.08] bg-black">
+    <div className="max-w-7xl mx-auto px-6 sm:px-8">
+      <div className="text-center mb-14 space-y-4"><div className="text-xs font-mono uppercase tracking-widest text-zinc-500">// TRY IT LIVE</div><h2 className="font-heading text-3xl sm:text-5xl font-bold text-white">Upload. Translate. Route.</h2><p className="text-zinc-400 max-w-2xl mx-auto">Upload spoken audio or video, then play it alongside sentence-level transcription, translation, and routing.</p></div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-wrap gap-1.5">{['English','Hindi','Tamil','Telugu','Malayalam'].map(language => <span key={language} className="px-2.5 py-1 rounded-full text-[10px] font-mono bg-zinc-900 border border-white/[0.06] text-zinc-400">{language}</span>)}</div>
+          <div id="tryit-upload-dropzone" onDragOver={event => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); selectFile(event.dataTransfer.files?.[0]); }} onClick={() => !file && inputRef.current?.click()} className={`min-h-[230px] rounded-2xl border-2 border-dashed flex items-center justify-center p-8 ${dragging ? 'border-white/40 bg-white/[0.04]' : file ? 'border-emerald-500/40 bg-emerald-500/[0.04]' : 'border-white/10 bg-[#080808] cursor-pointer'}`}>
+            <input ref={inputRef} type="file" className="hidden" accept=".mp4,.mp3,.wav,.m4a,.webm,.mov,audio/*,video/*" onChange={event => selectFile(event.target.files?.[0])}/>
+            {file ? <div className="text-center space-y-4">{isVideo ? <Film className="w-8 h-8 text-indigo-400 mx-auto"/> : <FileAudio className="w-8 h-8 text-emerald-400 mx-auto"/>}<p className="text-sm text-zinc-100 break-all">{file.name}</p><button onClick={event => { event.stopPropagation(); removeFile(); }} className="px-3 py-1.5 rounded-full text-xs text-zinc-400 bg-zinc-900 border border-white/10"><X className="inline w-3 h-3 mr-1"/>Remove</button></div> : <div className="text-center"><Upload className="w-8 h-8 text-zinc-500 mx-auto mb-4"/><p className="text-sm text-zinc-200">Drop audio or video here</p><p className="text-xs text-zinc-600 mt-2">MP4 · MP3 · WAV · M4A · WebM · MOV · 50 MB max</p></div>}
+          </div>
+          {file && mediaUrl && (isVideo ? <video ref={element => { mediaRef.current = element; }} src={mediaUrl} controls onPlay={guardPlayback} onTimeUpdate={syncTranscript} className="w-full max-h-72 rounded-xl bg-zinc-950"/> : <audio ref={element => { mediaRef.current = element; }} src={mediaUrl} controls onPlay={guardPlayback} onTimeUpdate={syncTranscript} className="w-full"/>)}
+          {file && loading && <div className={`rounded-xl border px-4 py-3 text-xs font-mono ${playbackReady && !waitingForBuffer ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-300'}`}>{waitingForBuffer ? `BUFFERING — ${transcribedChunks}/${chunkCount} transcribed · ${processedChunks}/${chunkCount} translated` : playbackReady ? `PLAYBACK READY · ${transcribedChunks}/${chunkCount} transcribed · playable through ${formatTime(processedThrough)}` : `BUFFERING · ${transcribedChunks}/${chunkCount} transcribed · ${processedChunks}/3 READY TO PLAY`}</div>}
+          <button disabled title="Live microphone chunking is the next phase" className="w-full py-3 rounded-xl bg-zinc-950 border border-white/[0.08] text-zinc-600 text-sm font-mono cursor-not-allowed"><Mic className="inline w-4 h-4 mr-2"/>Live microphone — coming next</button>
+          <button id="tryit-analyse-btn" disabled={!file || loading} onClick={analyze} className="w-full py-4 rounded-xl font-semibold text-sm bg-white text-black disabled:bg-zinc-900 disabled:text-zinc-600">{loading ? `Streaming · ${progress}` : 'Analyse with SachMein?'}<ArrowUpRight className="inline w-4 h-4 ml-2"/></button>
+          {error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>}
         </div>
-
-        {/* Main split layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
-          {/* ── LEFT: Upload Panel ───────────────────────────────────────── */}
-          <div className="flex flex-col gap-5">
-
-            {/* Supported languages */}
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">
-                Supported Languages
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {SUPPORTED_LANGUAGES.map((lang) => (
-                  <span
-                    key={lang}
-                    className="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-zinc-900 border border-white/[0.06] text-zinc-400"
-                  >
-                    {lang}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Drop Zone */}
-            <div
-              id="tryit-upload-dropzone"
-              className={`relative rounded-2xl border-2 border-dashed transition-all duration-300 cursor-pointer min-h-[260px] flex items-center justify-center
-                ${isDragging
-                  ? 'border-white/40 bg-white/[0.04] scale-[1.01]'
-                  : uploadedFile
-                    ? 'border-emerald-500/40 bg-emerald-500/[0.04]'
-                    : 'border-white/[0.10] bg-[#080808] hover:border-white/25 hover:bg-white/[0.02]'
-                }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => !uploadedFile && fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                id="tryit-file-input"
-                accept="video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,.mp4,.mp3,.wav,.m4a,.webm,.mov"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-
-              {uploadedFile ? (
-                /* File selected state */
-                <div className="flex flex-col items-center gap-4 px-8 py-6 text-center w-full">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${
-                    isVideo
-                      ? 'bg-indigo-500/10 border-indigo-500/30'
-                      : 'bg-emerald-500/10 border-emerald-500/30'
-                  }`}>
-                    {isVideo
-                      ? <Film className="w-6 h-6 text-indigo-400" />
-                      : <FileAudio className="w-6 h-6 text-emerald-400" />
-                    }
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-100 mb-1 break-all">
-                      {uploadedFile.name}
-                    </p>
-                    <p className="text-xs font-mono text-zinc-500">
-                      {formatFileSize(uploadedFile.size)} · {uploadedFile.type}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleRemoveFile(); }}
-                    id="tryit-remove-file-btn"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono text-zinc-400 hover:text-white bg-zinc-900 border border-white/10 hover:border-white/30 transition-all"
-                  >
-                    <X className="w-3 h-3" />
-                    Remove File
-                  </button>
-                </div>
-              ) : (
-                /* Empty state */
-                <div className="flex flex-col items-center gap-5 px-8 py-6 text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center transition-all duration-200 group-hover:border-white/25">
-                    <Upload className="w-7 h-7 text-zinc-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-200 mb-1">
-                      Drop your video or audio here
-                    </p>
-                    <p className="text-xs text-zinc-500 font-sans leading-relaxed">
-                      MP4 · MP3 · WAV · M4A · WebM · MOV
-                      <br />
-                      Max file size: 500 MB
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 w-full max-w-[200px]">
-                    <div className="h-px flex-1 bg-white/[0.06]" />
-                    <span className="text-[10px] font-mono text-zinc-600 uppercase">or</span>
-                    <div className="h-px flex-1 bg-white/[0.06]" />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                    id="tryit-browse-btn"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 border border-white/10 hover:border-white/30 text-xs font-mono text-zinc-300 hover:text-white transition-all duration-200"
-                  >
-                    Browse Files
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Live mic option */}
-            <button
-              type="button"
-              id="tryit-live-mic-btn"
-              className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl bg-zinc-950 border border-white/[0.08] hover:border-white/20 text-zinc-400 hover:text-zinc-200 text-sm font-mono transition-all duration-200 group"
-            >
-              <Mic className="w-4 h-4 group-hover:text-white transition-colors" />
-              Record Live Audio Instead
-            </button>
-
-            {/* Analyse button */}
-            <button
-              type="button"
-              id="tryit-analyse-btn"
-              disabled={!uploadedFile}
-              className={`w-full inline-flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-sm transition-all duration-200
-                ${uploadedFile
-                  ? 'bg-white text-black hover:bg-zinc-200 cursor-pointer shadow-lg'
-                  : 'bg-zinc-900 text-zinc-600 border border-white/[0.06] cursor-not-allowed'
-                }`}
-            >
-              Analyse with SachMein?
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
-
+        <div className="flex flex-col gap-4"><div><div className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">// PLAY-ALONG TRANSCRIPT</div><p className="text-sm text-zinc-500">Active sentence highlights while the media plays</p></div>
+          <div id="tryit-results-panel" className="min-h-[480px] max-h-[680px] overflow-y-auto rounded-2xl border border-white/[0.06] bg-[#060606] p-5">
+            {result ? <div className="space-y-3">
+              <div className="mb-5 flex justify-between text-xs text-zinc-500"><span>{LANGUAGE_NAMES[result.detected_language ?? ''] ?? result.detected_language ?? 'Unknown'} · {result.processed_segments.length} sentences</span><span>Total {milliseconds(result.total_latency_ms)}</span></div>
+              {loading && result.processed_segments.length === 0 && <div className="py-20 text-center text-xs font-mono text-zinc-500">PREPARING FIRST 5-SECOND CHUNK…</div>}
+              {currentSegments.map(segment => { const gate = segment.fact_check_gate.should_fact_check; return <button key={segment.segment_id} onClick={() => seek(segment)} className={`w-full text-left rounded-xl border p-4 transition ${activeSegment === segment.segment_id ? 'border-indigo-400 bg-indigo-500/10' : 'border-white/[0.06] bg-zinc-950 hover:border-white/20'}`}>
+                <div className="flex justify-between mb-2"><span className="text-[10px] font-mono text-zinc-500">{formatTime(segment.start)}–{formatTime(segment.end)}</span><span className={`text-[10px] font-mono ${gate === true ? 'text-amber-400' : gate === false ? 'text-emerald-400' : 'text-zinc-600'}`}>{gate == null ? 'ROUTING UNAVAILABLE' : gate ? 'FACT CHECK' : 'SKIP'}</span></div>
+                <p className="text-sm leading-6 text-zinc-300">{segment.original_text}</p>{segment.english_text && segment.english_text !== segment.original_text && <p className="mt-2 text-sm leading-6 text-white">{segment.english_text}</p>}<p className="mt-2 text-[11px] text-zinc-600">{segment.fact_check_gate.statement_type.replaceAll('_',' ')} · {segment.fact_check_gate.reason}</p>
+              </button>; })}
+              {currentSegments.length === 0 && <div className="py-20 text-center text-xs font-mono text-zinc-600">{currentTime === 0 ? 'SUBTITLES WILL APPEAR WHEN PLAYBACK REACHES THEM' : `NO READY SPEECH AT ${formatTime(currentTime)}`}</div>}
+              <p className="text-center text-[10px] font-mono text-zinc-700">{result.processed_segments.length} TIMED SEGMENTS STORED · FUTURE TEXT HIDDEN</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 text-xs">{[['STT',result.stt_latency_ms],['Translation',result.translation_latency_ms],['Classifier',result.classification_latency_ms],['Total',result.total_latency_ms]].map(([label,value]) => <span key={String(label)} className="rounded-lg bg-zinc-900 p-2 text-zinc-500">{label}<b className="block text-zinc-200">{milliseconds(value as number | null)}</b></span>)}</div>
+            </div> : <div className="h-full flex items-center justify-center text-center text-xs text-zinc-700">Choose a clear spoken-news, interview, or podcast clip for the best first test.</div>}
           </div>
-
-          {/* ── RIGHT: Results Panel (empty — backend to populate) ────────── */}
-          <div className="flex flex-col gap-4">
-
-            {/* Panel header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-0.5">
-                  // LIVE TRANSCRIPT + FACT-CHECK
-                </div>
-                <div className="text-sm font-semibold text-zinc-500">
-                  Results will appear here after analysis
-                </div>
-              </div>
-              {/* Color legend */}
-              <div className="hidden sm:flex items-center gap-2 flex-wrap justify-end">
-                {[
-                  { dot: 'bg-emerald-500', label: 'Verified' },
-                  { dot: 'bg-yellow-500', label: 'Misleading' },
-                  { dot: 'bg-red-500', label: 'False' },
-                  { dot: 'bg-zinc-600', label: 'Checking' },
-                ].map(({ dot, label }) => (
-                  <div key={label} className="flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-                    <span className="text-[9px] font-mono text-zinc-600">{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Empty results area */}
-            <div
-              id="tryit-results-panel"
-              className="flex-1 min-h-[420px] rounded-2xl border border-white/[0.06] bg-[#060606] flex flex-col items-center justify-center gap-6 px-8 text-center"
-            >
-              {/* Placeholder grid — skeleton of what the transcript will look like */}
-              <div className="w-full space-y-3 opacity-20 pointer-events-none select-none">
-                {[
-                  { w: 'w-full', status: 'bg-emerald-500' },
-                  { w: 'w-5/6', status: 'bg-red-500' },
-                  { w: 'w-full', status: 'bg-yellow-500' },
-                  { w: 'w-4/5', status: 'bg-zinc-600' },
-                  { w: 'w-full', status: 'bg-emerald-500' },
-                ].map((row, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-1.5">
-                      <div className={`w-0.5 h-8 rounded-full ${row.status}`} />
-                    </div>
-                    <div className={`${row.w} space-y-1.5`}>
-                      <div className="h-2 bg-zinc-800 rounded-full w-1/3" />
-                      <div className="h-2 bg-zinc-800 rounded-full w-full" />
-                      <div className="h-2 bg-zinc-800 rounded-full w-2/3" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Waiting message */}
-              <div className="space-y-2">
-                <p className="text-xs font-mono text-zinc-600 uppercase tracking-widest">
-                  Awaiting upload
-                </p>
-                <p className="text-xs text-zinc-700 font-sans leading-relaxed max-w-xs">
-                  Upload a video or audio file on the left to see real-time translation and color-coded fact-checking results here.
-                </p>
-              </div>
-
-              {/* Colour code legend for mobile */}
-              <div className="flex sm:hidden items-center gap-3 flex-wrap justify-center">
-                {[
-                  { dot: 'bg-emerald-500', label: 'Verified', color: 'text-emerald-600' },
-                  { dot: 'bg-yellow-500', label: 'Misleading', color: 'text-yellow-600' },
-                  { dot: 'bg-red-500', label: 'False', color: 'text-red-600' },
-                  { dot: 'bg-zinc-600', label: 'Checking', color: 'text-zinc-600' },
-                ].map(({ dot, label, color }) => (
-                  <div key={label} className="flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-                    <span className={`text-[9px] font-mono ${color}`}>{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Backend integration hint */}
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-950 border border-white/[0.06]">
-              <div className="w-1 h-1 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0 animate-pulse" />
-              <p className="text-[11px] font-sans text-zinc-600 leading-relaxed">
-                Translation + fact-check results from the SachMein? backend will stream into this panel per sentence, color-coded by claim verdict.
-              </p>
-            </div>
-
-          </div>
-
         </div>
       </div>
-    </section>
-  );
+    </div>
+  </section>;
 };

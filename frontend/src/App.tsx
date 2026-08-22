@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { defaultLandingContent } from './content';
 import { LandingContent } from './types';
 import { BackgroundEffects } from './components/BackgroundEffects';
@@ -9,8 +9,10 @@ import { TryItSection } from './components/TryItSection';
 import { TestimonialsMarquee } from './components/TestimonialsMarquee';
 import { FinalCTA } from './components/FinalCTA';
 import { Footer } from './components/Footer';
+import Person2Pipeline from './Person2Pipeline';
 
 export default function App() {
+  if (window.location.pathname === '/person2-test') return <Person2Pipeline />;
   const [content] = useState<LandingContent>(defaultLandingContent);
 
   return (

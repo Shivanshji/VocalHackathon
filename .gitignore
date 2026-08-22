@@ -1,15 +1,16 @@
 # API keys / Secrets
 .env
 fact-checker/.env
+.venv/
 
 # Python caches
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
 .pytest_cache/
 fact-checker/.pytest_cache/
 fact-checker/**/__pycache__/
+samples/*
+!samples/.gitkeep
 
 # Scratch scripts
 fact-checker/scratch/

@@ -203,4 +203,4 @@ export const defaultLandingContent: LandingContent = {
   },
 };
 
-export const samplePresets = {};
+export const samplePresets: Record<string, { label: string; description: string; data: any }> = {};

@@ -83,6 +83,11 @@
   background: #3f3f46;
 }
 
+.p2-page { min-height: 100vh; padding: 48px 20px; background: #f4f6fa; color: #192235; }
+.p2-shell { width: min(760px, 100%); margin: auto; }.p2-label { color: #3158b5; font: 700 12px monospace; letter-spacing: .14em; }.p2-page h1 { margin: 8px 0; color: #111827; font-size: 46px; }.p2-muted { color: #687386; margin-bottom: 28px; }
+.p2-upload,.p2-results section { background: white; border: 1px solid #dce2eb; border-radius: 12px; padding: 20px; box-shadow: 0 5px 20px #1720330a; }.p2-upload { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }.p2-upload span { flex: 1; min-width: 170px; overflow-wrap: anywhere; color: #667085; }.p2-file,.p2-upload button { padding: 11px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; }.p2-file { background: #f8fafc; border: 1px solid #b9c3d1; }.p2-file input { position: absolute; opacity: 0; width: 1px; }.p2-upload button { color: white; background: #2456da; border: 0; }.p2-upload button:disabled { opacity: .5; cursor: not-allowed; }
+.p2-status { color: #3158b5; }.p2-error { margin-top: 16px; padding: 14px; border-radius: 8px; color: #9d2020; background: #fff0f0; border: 1px solid #efabab; }.p2-results { display: grid; gap: 14px; margin-top: 20px; }.p2-results h2 { margin: 0 0 12px; color: #687386; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }.p2-results p { margin: 6px 0; line-height: 1.6; white-space: pre-wrap; }.p2-results section > strong { display: block; font-size: 22px; }.p2-results small { display: block; margin-top: 5px; color: #687386; }.p2-gate { border-left-width: 5px !important; }.p2-yes { border-left-color: #df5a39 !important; }.p2-no { border-left-color: #259466 !important; }.p2-unavailable { border-left-color: #8791a1 !important; }.p2-timing { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }.p2-timing span { padding: 10px; background: #f4f6fa; color: #687386; font-size: 12px; }.p2-timing b { display: block; margin-top: 4px; color: #192235; font-size: 15px; }.p2-landing { display: inline-block; margin-top: 20px; color: #3158b5; }.p2-page a:hover { text-decoration: underline; }
+@media(max-width:560px){.p2-page h1{font-size:36px}.p2-upload button{width:100%}.p2-timing{grid-template-columns:repeat(2,1fr)}}
 
 /* Fade-in-up for streaming transcript cards */
 @keyframes fade-in-up {
