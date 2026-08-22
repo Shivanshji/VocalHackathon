@@ -1,6 +1,7 @@
 import asyncio
+import re
 from backend.config import Settings
-from backend.models import FactCheckGateResult
+from backend.models import FactCheckGateResult, StatementType
 
 INSTRUCTION = """You are a routing classifier for a media fact-checking system. Your ONLY task is
 to decide whether the statement contains a meaningful externally verifiable factual assertion.
@@ -24,6 +25,9 @@ class GeminiGate:
         return self._client
 
     async def classify_fact_check_worthiness(self, english_text: str) -> FactCheckGateResult:
+        deterministic = self._deterministic_claim(english_text)
+        if deterministic is not None:
+            return deterministic
         response = await asyncio.wait_for(self._get_client().aio.models.generate_content(
             model=self.settings.gemini_model,
             contents=f"Classify this statement:\n{english_text}",
@@ -32,3 +36,21 @@ class GeminiGate:
             timeout=self.settings.ai_timeout_seconds)
         parsed = getattr(response, "parsed", None)
         return FactCheckGateResult.model_validate(parsed) if parsed is not None else FactCheckGateResult.model_validate_json(response.text)
+
+    @staticmethod
+    def _deterministic_claim(text: str) -> FactCheckGateResult | None:
+        """Route obvious verifiable claims even when the LLM quota is unavailable."""
+        normalized = " ".join(text.lower().split())
+        patterns = (
+            r"\b(?:i|we|he|she|they|[a-z][a-z .'-]+)\s+(?:wrote|authored|created|invented|founded|discovered|developed|built)\b",
+            r"\b(?:president|prime minister|minister|governor|chief minister|ceo|founder|author|inventor)\b",
+            r"\b\d+(?:\.\d+)?\s*(?:%|percent|million|billion|crore|lakh|years?|people|dollars?|rupees?)\b",
+            r"\b(?:increased|decreased|rose|fell|grew|declined)\s+by\b",
+        )
+        if any(re.search(pattern, normalized) for pattern in patterns):
+            return FactCheckGateResult(
+                should_fact_check=True,
+                statement_type=StatementType.factual_claim,
+                reason="Matched a deterministic externally verifiable claim pattern.",
+            )
+        return None
