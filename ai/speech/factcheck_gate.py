@@ -24,13 +24,13 @@ class GeminiGate:
             self._client = genai.Client(api_key=self.settings.gemini_api_key)
         return self._client
 
-    async def classify_fact_check_worthiness(self, english_text: str) -> FactCheckGateResult:
+    async def classify_fact_check_worthiness(self, english_text: str, context: str = "") -> FactCheckGateResult:
         deterministic = self._deterministic_claim(english_text)
         if deterministic is not None:
             return deterministic
         response = await asyncio.wait_for(self._get_client().aio.models.generate_content(
             model=self.settings.gemini_model,
-            contents=f"Classify this statement:\n{english_text}",
+            contents=f"Context (only for resolving references):\n{context or 'None'}\n\nClassify this statement:\n{english_text}",
             config={"system_instruction": INSTRUCTION, "temperature": 0,
                     "response_mime_type": "application/json", "response_schema": FactCheckGateResult}),
             timeout=self.settings.ai_timeout_seconds)
@@ -42,7 +42,9 @@ class GeminiGate:
         """Route obvious verifiable claims even when the LLM quota is unavailable."""
         normalized = " ".join(text.lower().split())
         patterns = (
-            r"\b(?:i|we|he|she|they|[a-z][a-z .'-]+)\s+(?:wrote|authored|created|invented|founded|discovered|developed|built)\b",
+            r"\b(?:i|we|he|she|they|[a-z][a-z .'-]+)\s+(?:(?:have|has|had)\s+)?(?:written|wrote|authored|created|invented|founded|discovered|developed|built)\b",
+            r"\b(?:was|were)\s+(?:written|authored|created|invented|founded|discovered|developed|built)\s+by\b",
+            r"\b(?:am|is|are|was|were)\s+(?:the\s+)?(?:author|creator|inventor|founder)\s+of\b",
             r"\b(?:president|prime minister|minister|governor|chief minister|ceo|founder|author|inventor)\b",
             r"\b\d+(?:\.\d+)?\s*(?:%|percent|million|billion|crore|lakh|years?|people|dollars?|rupees?)\b",
             r"\b(?:increased|decreased|rose|fell|grew|declined)\s+by\b",

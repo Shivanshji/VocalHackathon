@@ -3,6 +3,7 @@ import time
 import asyncio
 from pathlib import Path
 from ai.speech.factcheck_gate import GeminiGate
+from ai.speech.claim_context import RoutingMemory, atomic_statements
 from ai.speech.segmenter import sentence_segments
 from ai.speech.stt import WhisperTranscriber
 from ai.speech.translator import IndicTransTranslator
@@ -100,6 +101,7 @@ class AudioPipeline:
         fact_check_jobs: asyncio.Queue = asyncio.Queue()
         state = {"segments": 0, "language": None}
         locked_language = None
+        routing_memory = RoutingMemory(size=3)
 
         async def transcribe_worker():
             nonlocal locked_language
@@ -160,23 +162,33 @@ class AudioPipeline:
                 if job is None:
                     break
                 item, language, probability = job
-                try:
-                    gate = await self.gate.classify_fact_check_worthiness(item.english_text)
-                except Exception as exc:
-                    logger.warning("[STREAM GATE] segment=%s unavailable=%s", item.segment_id, exc)
-                    continue
-                if not gate.should_fact_check:
-                    continue
-                item.fact_check_gate = gate
-                claim = ClaimInput(session_id=session_id, segment_id=item.segment_id,
-                                   start=item.start, end=item.end, english_text=item.english_text,
-                                   should_fact_check=True, statement_type=gate.statement_type.value,
-                                   routing_reason=gate.reason)
-                await output.put({"type": "claim", "detected_language": language,
-                                  "language_probability": probability,
-                                  "segment": item.model_dump(mode="json"),
-                                  "claim": claim.model_dump(mode="json")})
-                await fact_check_jobs.put(claim)
+                statements = atomic_statements(item.english_text)
+                for claim_index, statement in enumerate(statements, start=1):
+                    routing_memory.remember(statement)
+                    contextualized = routing_memory.contextualize(statement)
+                    try:
+                        gate = await self.gate.classify_fact_check_worthiness(
+                            contextualized, routing_memory.summary())
+                    except Exception as exc:
+                        logger.warning("[STREAM GATE] segment=%s unavailable=%s", item.segment_id, exc)
+                        await output.put({"type": "routing_error", "segment_id": item.segment_id,
+                                          "statement": contextualized, "detail": str(exc)})
+                        continue
+                    if not gate.should_fact_check:
+                        continue
+                    routed_item = item.model_copy(deep=True)
+                    routed_item.segment_id = f"{item.segment_id}_claim_{claim_index}"
+                    routed_item.english_text = contextualized
+                    routed_item.fact_check_gate = gate
+                    claim = ClaimInput(session_id=session_id, segment_id=routed_item.segment_id,
+                                       start=routed_item.start, end=routed_item.end,
+                                       english_text=contextualized, should_fact_check=True,
+                                       statement_type=gate.statement_type.value, routing_reason=gate.reason)
+                    await output.put({"type": "claim", "detected_language": language,
+                                      "language_probability": probability,
+                                      "segment": routed_item.model_dump(mode="json"),
+                                      "claim": claim.model_dump(mode="json")})
+                    await fact_check_jobs.put(claim)
             await fact_check_jobs.put(None)
 
         async def fact_check_worker():

@@ -10,3 +10,8 @@ def test_authorship_claim_routes_without_gemini():
 
 def test_plain_introduction_is_not_forced_to_fact_checker():
     assert GeminiGate._deterministic_claim("My name is Sweety Biju.") is None
+
+
+def test_present_perfect_authorship_routes_without_gemini():
+    result = GeminiGate._deterministic_claim("Sweety Biju has written the Constitution of India.")
+    assert result is not None and result.should_fact_check is True
