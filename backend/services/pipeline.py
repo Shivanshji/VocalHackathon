@@ -170,10 +170,13 @@ class AudioPipeline:
                         gate = await self.gate.classify_fact_check_worthiness(
                             contextualized, routing_memory.summary())
                     except Exception as exc:
-                        logger.warning("[STREAM GATE] segment=%s unavailable=%s", item.segment_id, exc)
-                        await output.put({"type": "routing_error", "segment_id": item.segment_id,
-                                          "statement": contextualized, "detail": str(exc)})
-                        continue
+                        logger.warning("[STREAM GATE] segment=%s unavailable=%s; routing fail-open",
+                                       item.segment_id, exc)
+                        gate = FactCheckGateResult(
+                            should_fact_check=True,
+                            statement_type=StatementType.factual_claim,
+                            reason="Routing classifier unavailable; forwarded for downstream verification.",
+                        )
                     if not gate.should_fact_check:
                         continue
                     routed_item = item.model_copy(deep=True)

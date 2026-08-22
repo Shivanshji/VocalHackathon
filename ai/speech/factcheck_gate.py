@@ -39,20 +39,31 @@ class GeminiGate:
 
     @staticmethod
     def _deterministic_claim(text: str) -> FactCheckGateResult | None:
-        """Route obvious verifiable claims even when the LLM quota is unavailable."""
+        """Route substantive assertions with high recall.
+
+        Person 2 is a router, not the fact checker. Person 3 owns the final
+        verifiability decision and verdict, so dropping an unfamiliar factual
+        relation here is worse than forwarding an occasional false positive.
+        """
         normalized = " ".join(text.lower().split())
-        patterns = (
-            r"\b(?:i|we|he|she|they|[a-z][a-z .'-]+)\s+(?:(?:have|has|had)\s+)?(?:written|wrote|authored|created|invented|founded|discovered|developed|built)\b",
-            r"\b(?:was|were)\s+(?:written|authored|created|invented|founded|discovered|developed|built)\s+by\b",
-            r"\b(?:am|is|are|was|were)\s+(?:the\s+)?(?:author|creator|inventor|founder)\s+of\b",
-            r"\b(?:president|prime minister|minister|governor|chief(?: minister)?|ceo|founder|author|inventor)\b",
-            r"\b\d+(?:\.\d+)?\s*(?:%|percent|million|billion|crore|lakh|years?|people|dollars?|rupees?)\b",
-            r"\b(?:increased|decreased|rose|fell|grew|declined)\s+by\b",
+        if not normalized:
+            return FactCheckGateResult(should_fact_check=False, statement_type=StatementType.other,
+                                       reason="Empty statement.")
+
+        # Linguistic exclusions only; no topic or entity allow-list.
+        non_claim_patterns = (
+            r"^(?:hi|hello|hey|good (?:morning|afternoon|evening)|thank you|thanks|bye)[.!]*$",
+            r"^(?:please\s+)?(?:tell|show|give|send|open|close|play|stop|go|come|look|listen|wait)\b",
+            r"^(?:i|we)\s+(?:like|love|hate|prefer|feel|hope|wish|want|need)\b",
+            r"^(?:in my opinion|i think|i believe|personally)\b",
         )
-        if any(re.search(pattern, normalized) for pattern in patterns):
+        if normalized.endswith("?") or any(re.search(pattern, normalized) for pattern in non_claim_patterns):
             return FactCheckGateResult(
-                should_fact_check=True,
-                statement_type=StatementType.factual_claim,
-                reason="Matched a deterministic externally verifiable claim pattern.",
-            )
+                should_fact_check=False, statement_type=StatementType.other,
+                reason="Question, social phrase, instruction, or personal preference.")
+
+        if len(re.findall(r"\b[\w'-]+\b", normalized)) >= 3:
+            return FactCheckGateResult(
+                should_fact_check=True, statement_type=StatementType.factual_claim,
+                reason="Substantive declarative assertion routed for downstream verification.")
         return None
