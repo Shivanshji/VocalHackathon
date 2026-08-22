@@ -8,7 +8,8 @@ def atomic_statements(text: str) -> list[str]:
     if not normalized:
         return []
     parts = re.split(
-        r"(?<=[.!?])\s+|[,;]\s+(?:and|but)\s+(?=(?:i|we|he|she|they|[A-Z]))",
+        r"(?<=[.!?])\s+|[,;]\s+(?:and|but)\s+(?=(?:i|we|he|she|they|[A-Z]))|"
+        r"[,;]?\s+(?:and\s+)?(?=i am\s+(?:the\s+)?(?:chief|prime minister|president|minister|governor|ceo|founder)\b)",
         normalized,
         flags=re.IGNORECASE,
     )
@@ -27,6 +28,15 @@ class RoutingMemory:
         if match:
             name = re.split(r"\s+(?:and|but)\b", match.group(1), maxsplit=1, flags=re.IGNORECASE)[0]
             self.speaker_name = name.strip()
+        if self.speaker_name is None:
+            introduction = re.match(r"^I am\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\s*$",
+                                    text.strip(" .,!"), flags=re.IGNORECASE)
+            if introduction:
+                candidate = introduction.group(1).strip()
+                role_words = {"the", "a", "an", "chief", "prime", "minister", "president",
+                              "governor", "ceo", "founder", "author", "inventor"}
+                if not any(word.lower() in role_words for word in candidate.split()):
+                    self.speaker_name = candidate.title()
         self.recent.append(text)
 
     def contextualize(self, statement: str) -> str:
@@ -38,6 +48,7 @@ class RoutingMemory:
             (r"^I am the author\b", f"{self.speaker_name} is the author"),
             (r"^I created\b", f"{self.speaker_name} created"),
             (r"^I invented\b", f"{self.speaker_name} invented"),
+            (r"^I am\b", f"{self.speaker_name} is"),
         )
         for pattern, replacement in replacements:
             updated, count = re.subn(pattern, replacement, statement, count=1, flags=re.IGNORECASE)

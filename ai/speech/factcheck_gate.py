@@ -45,7 +45,7 @@ class GeminiGate:
             r"\b(?:i|we|he|she|they|[a-z][a-z .'-]+)\s+(?:(?:have|has|had)\s+)?(?:written|wrote|authored|created|invented|founded|discovered|developed|built)\b",
             r"\b(?:was|were)\s+(?:written|authored|created|invented|founded|discovered|developed|built)\s+by\b",
             r"\b(?:am|is|are|was|were)\s+(?:the\s+)?(?:author|creator|inventor|founder)\s+of\b",
-            r"\b(?:president|prime minister|minister|governor|chief minister|ceo|founder|author|inventor)\b",
+            r"\b(?:president|prime minister|minister|governor|chief(?: minister)?|ceo|founder|author|inventor)\b",
             r"\b\d+(?:\.\d+)?\s*(?:%|percent|million|billion|crore|lakh|years?|people|dollars?|rupees?)\b",
             r"\b(?:increased|decreased|rose|fell|grew|declined)\s+by\b",
         )
